@@ -1,3 +1,5 @@
 {
-    "src_points":[]
+    "src_points":[[528, 302], [1477, 302], [1889, 523], [117, 496]],
+    "output_width":2560,
+    "output_height":1240
 }

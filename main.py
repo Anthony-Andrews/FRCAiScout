@@ -1,7 +1,5 @@
 from collections import defaultdict
 import cv2
-import json
-import numpy as np
 from ultralytics import YOLO
 from dataclasses import dataclass
 import math
@@ -29,11 +27,13 @@ output_video = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
 # Store the track history
 track_history = defaultdict(lambda: [])
 
-output_width = 2560
-output_height = 1240
-
+#logs all car objects
 allcars = {}
-currcars = 6
+
+#logs all the movements of the bots
+robotlog = {}
+
+#class car to keep permanent track of robots
 @dataclass
 class Car():
     #X position in Video
@@ -47,11 +47,11 @@ class Car():
     #Dirty if tracking has been lost [no id]
     dirty: bool = False
     
-
 # Loop through the video frames
 while cap.isOpened():
     # Read a frame from the video
     ret, frame = cap.read()
+
     if ret:
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
         results = model.track(frame, persist=True, conf=0.3, iou=0.5, tracker="bytetrack.yaml", device="mps", max_det=6)
@@ -64,20 +64,23 @@ while cap.isOpened():
         # Visualize the results on the frame
         annotated_frame = frame
 
-        # Plot the tracks
+        # Creating car objects for consitent re-identification
         if  len(allcars) < 6:
             allcars.clear()
             for i in range(len(boxes)):
                 #print( Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i]))
                 allcars[track_ids[i]] =  Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i], len(allcars))
                 #print(type(allcars[track_ids[i]]))
+
+        #unsure
         elif len(boxes) < len(allcars):
-            currcars = len(boxes)
             for car in allcars.values():
                 car.dirty = True
             for tid in track_ids:
                 if allcars.get(tid):
                     allcars[tid].dirty = False
+
+        #sid when you pull from the git please update these comments
         for i in range(len(track_ids)):
             if allcars.get(track_ids[i]):
                 pass
@@ -92,7 +95,6 @@ while cap.isOpened():
                     m = list(distances.keys())[list(distances.values()).index(min(distances.values()))]
                     killcar = allcars.pop(m)
                     allcars[track_ids[i]] = Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i], killcar.carid)
-                    currcars += 1
                 except ZeroDivisionError as e:
                     print(e)
 
@@ -101,17 +103,20 @@ while cap.isOpened():
             allcars[track_id].x = int(x)
             allcars[track_id].y = int(y)
             track = track_history[track_id]
-            track.append((float(x), float(y)))  # x, y center point
+            track.append((float(x), float(y)))  # X, Y center point
 
             # Retain only the last 30 points for a history of 30 frames
             track = track[-30:]
 
         for car in allcars.values():
-            cv2.putText(annotated_frame,str(car), 
+            #annotates the frame
+            print(car.carid)
+            #robotlog[car.carid].append((car.x, car.y))
+            cv2.putText(annotated_frame,str(car.carid), 
                     (int(car.x), int(car.y)),
                     cv2.FONT_HERSHEY_SIMPLEX, 
                     1,
-                    (255, 0,0), thickness=2
+                    (0, 255,255), thickness=2
             )
 
         # Display the annotated frame
