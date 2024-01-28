@@ -5,19 +5,13 @@ import numpy as np
 from ultralytics import YOLO
 from dataclasses import dataclass
 import math
+import transform
 
 # Load YOLOv8 model
 model = YOLO('LargeBumperModel.pt')
 
 # Path to video file
 video_path = 'cuttest.mp4'
-
-# Path to transformation JSON:
-#json_file_path = 'C:/Users/antho/Desktop/frCV/Q90.json'
-
-# Field overlay image 2560 x 1240
-overlay = cv2.imread('/Users/cheese/Downloads/fieldS.png')
-video_overlay = False
 
 # Open the video
 cap = cv2.VideoCapture(video_path)
@@ -35,74 +29,25 @@ output_video = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
 # Store the track history
 track_history = defaultdict(lambda: [])
 
-# with open(json_file_path, 'r') as json_file:
-#     points = json.load(json_file)
-
-# # Setup variables read from JSON
-# src_points = points['src_points']
 output_width = 2560
 output_height = 1240
-
-def calculate_matrix(src_points, output_width, output_height):
-    # Convert the source points to numpy array
-    src_points_np = np.array(src_points, dtype=np.float32)
-
-    # Define destination points based on the output resolution
-    src_points = np.array([[528, 302], [1477, 302], [1889, 523], [117, 496]], dtype=np.float32)
-    dst_points = np.array([[0, 0], [output_width - 1, 0], [output_width - 1, output_height - 1], [0, output_height - 1]],
-                                   dtype=np.float32)
-
-    print("src_points_np before transformation:", src_points_np)
-
-    # Calculate the perspective transformation matrix using cv2.getPerspectiveTransform
-    transformation_matrix = cv2.getPerspectiveTransform(src_points_np, dst_points)
-
-    print("transformation_matrix:", transformation_matrix)
-
-    # Apply transformation to source points for visualization
-    transformed_points = cv2.perspectiveTransform(np.array([src_points_np]), transformation_matrix)
-    transformed_points = transformed_points[0]
-
-    print("transformed_points:", transformed_points)
-
-    return transformation_matrix
-
-# transformation_matrix = calculate_matrix(src_points, output_width, output_height) the calculated_matrix is bugged so here the matrix is hardcoded:
-
-transformation_matrix = np.array([[-4.62389460e+00, -1.29813687e+01, 5.89744728e+03],
-                                  [1.46544756e-01, -2.38574862e+01, 7.06949487e+03],
-                                  [4.66759180e-05, -1.00445012e-02, 1.00000000e+00]])
-
-def apply_transform(absolute_coords):
-    # Convert input coordinates to a numpy array
-    input_coordinates_np = np.array([absolute_coords], dtype=np.float32)
-    
-    # Apply perspective transformation
-    output_coordinates_np = cv2.perspectiveTransform(input_coordinates_np, transformation_matrix)
-
-    # Extract the output coordinates from the numpy array
-    output_coordinates = output_coordinates_np[0]
-
-    return output_coordinates
-
-# matrix test case:
-#absolute_coords = [[1520, 343]]
-#result = apply_transform(absolute_coords)
-#print(result)
-
-# Ensure frame_transformed and overlay have the same size
-overlay_resized = cv2.resize(overlay, (width, height))
 
 allcars = {}
 currcars = 6
 @dataclass
 class Car():
+    #X position in Video
     x: int
+    #Y position in Video
     y: int
-    #class, blue or red
+    #Class type, Blu or Red
     cls: int
-    #dirty means lost track [no id]
+    #Dirty if tracking has been lost [no id]
     dirty: bool = False
+
+transformation_matrix = np.array([[-4.62389460e+00, -1.29813687e+01, 5.89744728e+03],
+                                 [1.46544756e-01, -2.38574862e+01, 7.06949487e+03],
+                                 [4.66759180e-05, -1.00445012e-02, 1.00000000e+00]])
 
 # Loop through the video frames
 while cap.isOpened():
@@ -122,20 +67,6 @@ while cap.isOpened():
         annotated_frame = frame
 
         frame_transformed = cv2.warpPerspective(frame, transformation_matrix, (output_width, output_height))
-
-        if video_overlay:
-            # Ensure frame_transformed and overlay have the same size
-            overlay_resized = cv2.resize(overlay, (frame_transformed.shape[1], frame_transformed.shape[0]))
-
-            # Blend the transformed frame with the overlay (50% opacity)
-            blended_frame = cv2.addWeighted(frame_transformed, 0.5, overlay_resized, 0.5, 0)
-
-            # Blend the transformed frame with the overlay (50% opacity)
-            field_opacity = 0.37
-            field_frame = cv2.addWeighted(frame_transformed, 0.5 - field_opacity, overlay_resized, field_opacity, 0)
-        else:
-            # Ensure frame_transformed and overlay have the same size
-            field_frame = cv2.resize(overlay, (frame_transformed.shape[1], frame_transformed.shape[0]))
 
         # Plot the tracks
         if  len(allcars) < 6:
@@ -177,13 +108,6 @@ while cap.isOpened():
 
             # Retain only the last 30 points for a history of 30 frames
             track = track[-30:]
-
-            # Draw the tracking lines
-            if len(track) > 1:
-                points = np.array(track, dtype=np.int32).reshape((-1, 2))  # Reshape to (N, 2)
-                q_points = apply_transform(points)  # Apply perspective transformation
-                q_points = q_points.astype(np.int32)  # Ensure the points are integers
-                cv2.polylines(field_frame, [q_points], isClosed=False, color=(0, 0, 0), thickness=5)
         print(allcars)
         for car in allcars.values():
             cv2.putText(annotated_frame,str(car), 
@@ -192,8 +116,6 @@ while cap.isOpened():
                     1,
                     (255, 0,0), thickness=3
             )
-
-        cv2.imshow("Walmart Zebra Motionworks:", field_frame)
 
         # Save the current blended frame to the video.
         #output_video.write(field_frame)
