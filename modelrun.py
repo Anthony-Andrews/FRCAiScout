@@ -18,11 +18,6 @@ fps = int(cap.get(cv2.CAP_PROP_FPS))
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-# Create VideoWriter object with full path
-output_video_path = 'output.mp4'
-fourcc = cv2.VideoWriter_fourcc(*'H264')
-output_video = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-
 # Store the track history
 track_history = defaultdict(lambda: [])
 
@@ -59,9 +54,6 @@ while cap.isOpened():
         boxes = results[0].boxes.xywh.cpu()
         clss = results[0].boxes.cls.int().cpu().tolist()
         track_ids = results[0].boxes.id.int().cpu().tolist()
-        
-        # Visualize the results on the frame
-        annotated_frame = frame
 
         # Creating car objects for consitent re-identification
         if  len(allcars) < 6:
@@ -71,7 +63,7 @@ while cap.isOpened():
                 allcars[track_ids[i]] =  Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i], len(allcars))
                 #print(type(allcars[track_ids[i]]))
 
-        #unsure
+        # Marking cars which have lost track
         elif len(boxes) < len(allcars):
             for car in allcars.values():
                 car.dirty = True
@@ -79,7 +71,7 @@ while cap.isOpened():
                 if allcars.get(tid):
                     allcars[tid].dirty = False
 
-        #sid when you pull from the git please update these comments
+        #Helping cars move along with ID's
         for i in range(len(track_ids)):
             if allcars.get(track_ids[i]):
                 pass
@@ -98,41 +90,25 @@ while cap.isOpened():
                     print(e)
 
         for box, track_id in zip(boxes, track_ids):
-            #update bounding boxes
+            #Update Bounds for cars
             x, y, w, h = box
             allcars[track_id].x = int(x)
             allcars[track_id].y = int(y)
-            track = track_history[track_id]
-            track.append((float(x), float(y)))  # X, Y center point
-
-            # Retain only the last 30 points for a history of 30 frames
-            track = track[-30:]
 
         for car in allcars.values():
-            #annotates the frame
+            #Adds values to log
             robotlog[car.carid].append((car.x, car.y))
-            cv2.putText(annotated_frame,str(car.carid), 
-                    (int(car.x), int(car.y)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 
-                    1,
-                    (0, 255,255), thickness=2
-            )
 
-        # Display the annotated frame
-        cv2.imshow("YOLOv8 Tracking", annotated_frame)
-        output_video.write(annotated_frame)
-        
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
     else:
         break
 
 converted_dict = dict(robotlog)
-
-json_filename = 'output.json'
+#writes unprojected data to unmodout.json, transform.py takes it and "fixes" it
+json_filename = 'unmodout.json'
 with open(json_filename, 'w') as json_file:
     json.dump(converted_dict, json_file, indent=2)
 
-output_video.release()
 cap.release()
 cv2.destroyAllWindows()
