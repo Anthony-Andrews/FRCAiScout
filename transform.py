@@ -1,40 +1,32 @@
 import numpy as np
 import cv2
 import json
+from PIL import Image
 
-def calculate_matrix():
-    with open('transformpoint.json', 'r') as json_file:
-        jsondata = json.load(json_file)
-    # Convert the source points to numpy array
+image = Image.open("fieldS.png")
+width, height = image.size
 
-    # Define destination points based on the output resolution
-    src_points_np = np.array(jsondata["src_points"], dtype=np.float32)
-    dst_points = np.array([[0, 0], [jsondata["output_width"] - 1, 0], [jsondata["output_width"] - 1, jsondata["output_height"] - 1], [0, jsondata["output_height"] - 1]],
-                                   dtype=np.float32)
+with open('transformpoint.json', 'r') as json_file:
+    jsondata = json.load(json_file)
+src_points = np.array(jsondata["src_points"], dtype=np.float32)
+dst_points = np.array([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]], dtype=np.float32)
+# Compute the perspective transformation matrix
+perspectivematrix = cv2.getPerspectiveTransform(src_points, dst_points)
 
-    print("src_points_np before transformation:", src_points_np)
+def position_correct(positions):
+    positions_array = np.array(positions, dtype=np.float32)
+    positions_homogeneous = np.hstack((positions_array, np.ones((positions_array.shape[0], 1), dtype=np.float32)))
+    warped_positions_homogeneous = cv2.perspectiveTransform(positions_homogeneous.reshape(1, -1, 3), perspectivematrix)
+    warped_positions = warped_positions_homogeneous[0, :, :2]
+    return warped_positions
 
-    # Calculate the perspective transformation matrix using cv2.getPerspectiveTransform
-    transformation_matrix = cv2.getPerspectiveTransform(src_points_np, dst_points)
+#calibrating the perspective matrix
 
-    print("transformation_matrix:", transformation_matrix)
-
-    # Apply transformation to source points for visualization
-    transformed_points = cv2.perspectiveTransform(np.array([src_points_np]), transformation_matrix)
-    transformed_points = transformed_points[0]
-
-    print("transformed_points:", transformed_points)
-
-    return transformation_matrix
-transformation_matrix = calculate_matrix()
-def apply_transform(absolute_coords):
-    # Convert input coordinates to a numpy array
-    input_coordinates_np = np.array([absolute_coords], dtype=np.float32)
-    
-    # Apply perspective transformation
-    output_coordinates_np = cv2.perspectiveTransform(input_coordinates_np, transformation_matrix)
-
-    # Extract the output coordinates from the numpy array
-    output_coordinates = output_coordinates_np[0]
-
-    return output_coordinates
+"""image = cv2.imread("calibrater.jpg")
+overlay_image = cv2.imread('fieldS.png')
+warped_image = cv2.warpPerspective(image, perspectivematrix, (width, height))
+alpha = 0.3
+overlay_image = cv2.addWeighted(overlay_image, alpha, np.zeros_like(overlay_image), 1 - alpha, 0)
+result = cv2.addWeighted(warped_image, 1, overlay_image, 1, 0)
+cv2.imwrite('calibrateout.jpg', result)
+print("done")"""
