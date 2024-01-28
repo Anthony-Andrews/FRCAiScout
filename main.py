@@ -22,7 +22,7 @@ width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Create VideoWriter object with full path
-output_video_path = 'a.mp4'
+output_video_path = 'output.mp4'
 fourcc = cv2.VideoWriter_fourcc(*'H264')
 output_video = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
 
@@ -42,14 +42,16 @@ class Car():
     y: int
     #Class type, Blu or Red
     cls: int
+    #ID's
+    carid: int
     #Dirty if tracking has been lost [no id]
     dirty: bool = False
+    
 
 # Loop through the video frames
 while cap.isOpened():
     # Read a frame from the video
     ret, frame = cap.read()
-
     if ret:
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
         results = model.track(frame, persist=True, conf=0.3, iou=0.5, tracker="bytetrack.yaml", device="mps", max_det=6)
@@ -66,9 +68,9 @@ while cap.isOpened():
         if  len(allcars) < 6:
             allcars.clear()
             for i in range(len(boxes)):
-                print( Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i]))
-                allcars[track_ids[i]] =  Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i])
-                print(type(allcars[track_ids[i]]))
+                #print( Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i]))
+                allcars[track_ids[i]] =  Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i], len(allcars))
+                #print(type(allcars[track_ids[i]]))
         elif len(boxes) < len(allcars):
             currcars = len(boxes)
             for car in allcars.values():
@@ -88,11 +90,12 @@ while cap.isOpened():
                     distances[list(allcars.keys())[j]] = math.sqrt((boxes[i][0] - car.x)**2 + (boxes[i][1] - car.y)**2)
                 try:
                     m = list(distances.keys())[list(distances.values()).index(min(distances.values()))]
-                    allcars.pop(m)
-                    allcars[track_ids[i]] = Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i])
+                    killcar = allcars.pop(m)
+                    allcars[track_ids[i]] = Car(int(boxes[i][0].int()), int(boxes[i][1].int()), clss[i], killcar.carid)
                     currcars += 1
                 except ZeroDivisionError as e:
                     print(e)
+
         for box, track_id in zip(boxes, track_ids):
             x, y, w, h = box
             allcars[track_id].x = int(x)
@@ -103,18 +106,17 @@ while cap.isOpened():
             # Retain only the last 30 points for a history of 30 frames
             track = track[-30:]
 
-        print(allcars)
         for car in allcars.values():
             cv2.putText(annotated_frame,str(car), 
-                    (int(car.x), int(car.y)), 
+                    (int(car.x), int(car.y)),
                     cv2.FONT_HERSHEY_SIMPLEX, 
                     1,
-                    (255, 0,0), thickness=3
+                    (255, 0,0), thickness=2
             )
 
         # Display the annotated frame
         cv2.imshow("YOLOv8 Tracking", annotated_frame)
-        
+        output_video.write(annotated_frame)
         # Break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
