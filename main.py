@@ -45,10 +45,6 @@ class Car():
     #Dirty if tracking has been lost [no id]
     dirty: bool = False
 
-transformation_matrix = np.array([[-4.62389460e+00, -1.29813687e+01, 5.89744728e+03],
-                                 [1.46544756e-01, -2.38574862e+01, 7.06949487e+03],
-                                 [4.66759180e-05, -1.00445012e-02, 1.00000000e+00]])
-
 # Loop through the video frames
 while cap.isOpened():
     # Read a frame from the video
@@ -65,8 +61,6 @@ while cap.isOpened():
         
         # Visualize the results on the frame
         annotated_frame = frame
-
-        frame_transformed = cv2.warpPerspective(frame, transformation_matrix, (output_width, output_height))
 
         # Plot the tracks
         if  len(allcars) < 6:
@@ -108,6 +102,7 @@ while cap.isOpened():
 
             # Retain only the last 30 points for a history of 30 frames
             track = track[-30:]
+
         print(allcars)
         for car in allcars.values():
             cv2.putText(annotated_frame,str(car), 
@@ -117,12 +112,9 @@ while cap.isOpened():
                     (255, 0,0), thickness=3
             )
 
-        # Save the current blended frame to the video.
-        #output_video.write(field_frame)
-
         # Display the annotated frame
         cv2.imshow("YOLOv8 Tracking", annotated_frame)
-
+        
         # Break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
