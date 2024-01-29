@@ -1,5 +1,5 @@
 # FRCAiScout
-An app to automate FRC scoutting using object detection and REID.
+An app to automate FRC scoutting using object detection and RE-ID.
 
 # Created by Anthony Andrews, Siddartha Kollu, Annika Kulawik, and Ethan Cui
 
