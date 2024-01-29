@@ -10,5 +10,4 @@ Ethan Cui
 Anthony Andrews
 
 and most importantly:
-ChatGPT
-Coffee (sleep deprivation)
+ChatGPT & Coffee (sleep deprivation)
