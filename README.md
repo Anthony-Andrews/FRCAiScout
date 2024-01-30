@@ -10,4 +10,4 @@ Ethan Cui
 Anthony Andrews
 
 and most importantly:
-ChatGPT & Coffee (sleep deprivation)
+ChatGPT & Coffee (Anthony and Annika are literal caffeine virgins, like shut up antwon]
